@@ -1,0 +1,25 @@
+# IDE settings
+.idea/
+
+# Operating system files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Dependencies and build output
+node_modules/
+dist/
+coverage/
+
+# Local environment variables
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+
+# Temporary editor files
+*.swp
+*.swo
+*~
