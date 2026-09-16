@@ -10,16 +10,71 @@
 </head>
 
 <body>
+    <header>
+        <h1>Трекер прочитаних книг</h1>
 
-    <!-- Шапка сайта з навігацією -->
+        <nav>
+            <a href="#add-book">Додати книгу</a>
+            <a href="#my-books">Мої книги</a>
+            <a href="#statistics">Статистика</a>
+        </nav>
+    </header>
 
-    <!-- Форма додавання книги -->
+    <main>
+        <section id="add-book">
+            <h2>Додати книгу</h2>
 
-    <!-- Список книг (картки з автором і статусом) -->
+            <form>
+                <label for="book-title">Назва книги:</label>
+                <input type="text" id="book-title" name="book-title">
 
-    <!-- Статистика читання -->
+                <label for="book-author">Автор:</label>
+                <input type="text" id="book-author" name="book-author">
 
-    <!-- Підвал -->
+                <label for="book-status">Статус:</label>
+                <input type="text" id="book-status" name="book-status">
+            </form>
+        </section>
+
+        <section id="my-books">
+            <h2>Мої книги</h2>
+
+            <article>
+                <h3>1984</h3>
+                <p>Автор: Джордж Орвелл</p>
+                <p>Статус: Прочитано</p>
+            </article>
+
+            <article>
+                <h3>Прекрасний новий світ</h3>
+                <p>Автор: Олдос Гакслі</p>
+                <p>Статус: Прочитано</p>
+            </article>
+
+            <article>
+                <h3>Квіти для Елджернона</h3>
+                <p>Автор: Деніел Кіз</p>
+                <p>Статус: Прочитано</p>
+            </article>
+
+            <article>
+                <h3>Парфуми. Історія одного вбивці</h3>
+                <p>Автор: Патрік Зюскінд</p>
+                <p>Статус: Прочитано</p>
+            </article>
+
+        </section>
+    </main>
+
+    <aside id="statistics">
+        <h2>Статистика читання</h2>
+        <p>Усього книг: 4</p>
+        <p>Прочитано: 4</p>
+    </aside>
+
+    <footer>
+        <p>2026 Навчальний проект з програмування веб застосунків. Виконала: Кошева Марія</p>
+    </footer>
 
     <script src="js/app.js"></script>
 </body>
