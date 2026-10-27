@@ -33,6 +33,58 @@ console.log(books);
 // Вибір контейнера для списку книг
 const booksList = document.querySelector('#books-list');
 
+// Вибір форми додавання книги
+const form = document.querySelector('#book-form');
+
+// Вибір поля автора
+const authorInput = document.querySelector('#book-author');
+
+// Перевірка коректності введеного автора
+authorInput.addEventListener('input', () => {
+    const author = authorInput.value.trim();
+
+    if (author !== '' && !/^[^0-9]+$/.test(author)) {
+        authorInput.setCustomValidity(
+            'Ім’я автора не повинно містити цифри'
+        );
+    } else {
+        authorInput.setCustomValidity('');
+    }
+});
+
+// Обробка надсилання форми та додавання нової книги
+form.addEventListener('submit', event => {
+    event.preventDefault();
+
+    // Зчитування значень полів форми
+    const title = document.querySelector('#book-title').value.trim();
+    const author = document.querySelector('#book-author').value.trim();
+    const pages = Number(document.querySelector('#book-pages').value);
+    const status = document.querySelector('#book-status').value;
+
+    // Створення нового об'єкта книги
+    const newBook = {
+        title: title,
+        author: author,
+        pages: pages,
+        finished: status === 'completed'
+    };
+
+    // Додавання нової книги до масиву
+    books.push(newBook);
+
+    renderBooks(books);
+
+    booksCount.textContent = `Усього книг: ${books.length}`;
+
+    // Оновлення статистики
+    const completedBooks = books.filter(book => book.finished).length;
+    completedCount.textContent = `Прочитано: ${completedBooks}`;
+
+    // Очищення форми
+    form.reset();
+});
+
 // Знаходить і видаляє статичний приклад картки
 const staticBookCard = document.querySelector('.book-card');
 
@@ -42,37 +94,67 @@ if (staticBookCard) {
 
 // Рендер карток книг із масиву
 function renderBooks(books) {
-    for (const book of books) {
+    booksList.innerHTML = '';
+
+    // Створення картки для кожної книги
+    books.forEach((book, index) => {
         const article = document.createElement('article');
         const title = document.createElement('h3');
         const author = document.createElement('p');
+        const statusSelect = document.createElement('select');
 
-        // Додавання класу та атрибута
+        // Додавання класу та атрибута data-pages
         article.classList.add('book-card');
         article.setAttribute('data-pages', book.pages);
 
-        // Позначення непрочитаної книги
         if (!book.finished) {
             article.classList.add('unread');
         }
 
-        // Заповнення даних картки
         title.textContent = book.title;
         author.textContent = `Автор: ${book.author}`;
 
-        // Додавання елементів у DOM
-        article.append(title, author);
+        statusSelect.classList.add('book-status-select');
+        statusSelect.dataset.index = index;
+
+        statusSelect.innerHTML = `
+            <option value="reading">Читаю</option>
+            <option value="completed">Прочитано</option>
+        `;
+
+        statusSelect.value = book.finished ? 'completed' : 'reading';
+
+        article.append(title, author, statusSelect);
         booksList.append(article);
-    }
+    });
 }
+
+// Обробка зміни статусу книги через делегування подій
+booksList.addEventListener('change', event => {
+    if (event.target.classList.contains('book-status-select')) {
+        const index = Number(event.target.dataset.index);
+
+        books[index].finished = event.target.value === 'completed';
+
+        renderBooks(books);
+
+        const completedBooks = books.filter(book => book.finished).length;
+        completedCount.textContent = `Прочитано: ${completedBooks}`;
+    }
+});
 
 // Виведення книг на сторінку
 renderBooks(books);
 
-// Оновлення кількості книг
+// Вибір елементів статистики
 const booksCount = document.querySelector('#books-count');
+const completedCount = document.querySelector('#completed-count');
 
+// Оновлення статистики
 booksCount.textContent = `Усього книг: ${books.length}`;
+
+const completedBooks = books.filter(book => book.finished).length;
+completedCount.textContent = `Прочитано: ${completedBooks}`;
 
 // Підраховує сумарну кількість сторінок прочитаних книг
 function calculateReadPages(books) {
