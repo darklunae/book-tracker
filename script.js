@@ -28,10 +28,103 @@ const books = [
     }
 ];
 
+const API_URL = 'https://openlibrary.org/search.json?q=';
+
+// Завантаження даних з Open Library Search API:
+// https://openlibrary.org/search.json?q=<назва книги>
+async function loadData(query) {
+    errorMessage.textContent = '';
+    errorMessage.style.display = 'none';
+    searchResultsList.innerHTML = '';
+    loadingMessage.hidden = false;
+
+    try {
+        const response = await fetch(
+            API_URL + encodeURIComponent(query)
+        );
+
+        if (!response.ok) {
+            throw new Error(
+                `Сервер відповів кодом ${response.status}`
+            );
+        }
+
+        const data = await response.json();
+        console.log(data);
+
+        if (data.docs.length === 0) {
+            errorMessage.textContent =
+                'За запитом нічого не знайдено';
+
+            errorMessage.style.display = 'block';
+
+            return;
+        }
+
+        const apiBooks = data.docs.map(book => ({
+            title: book.title,
+            author: book.author_name
+                ? book.author_name.join(', ')
+                : 'Невідомий автор',
+            firstPublishYear:
+                book.first_publish_year ?? 'Невідомо'
+        }));
+
+        renderBooks(apiBooks, searchResultsList);
+
+    } catch (error) {
+        console.error(error);
+
+        errorMessage.textContent =
+            'Не вдалося завантажити книги. Перевірте з’єднання та спробуйте ще раз.';
+
+        errorMessage.style.display = 'block';
+
+    } finally {
+        loadingMessage.hidden = true;
+    }
+}
+
 console.log(books);
 
 // Вибір контейнера для списку книг
 const booksList = document.querySelector('#books-list');
+
+const apiSearchInput =
+    document.querySelector('#api-search-input');
+
+const apiSearchButton =
+    document.querySelector('#api-search-button');
+
+const refreshButton =
+    document.querySelector('#refresh-button');
+
+const searchResultsList =
+    document.querySelector('#search-results-list');
+
+const loadingMessage =
+    document.querySelector('#loading-message');
+
+const errorMessage =
+    document.querySelector('#error-message');
+
+// Пошук книги через Open Library API
+apiSearchButton.addEventListener('click', () => {
+    const query = apiSearchInput.value.trim();
+
+    if (query !== '') {
+        loadData(query);
+    }
+});
+
+// Повторний запит до Open Library API
+refreshButton.addEventListener('click', () => {
+    const query = apiSearchInput.value.trim();
+
+    if (query !== '') {
+        loadData(query);
+    }
+});
 
 // Вибір форми додавання книги
 const form = document.querySelector('#book-form');
@@ -73,7 +166,11 @@ form.addEventListener('submit', event => {
     // Додавання нової книги до масиву
     books.push(newBook);
 
-    renderBooks(books);
+    console.log(
+        `Додано книгу: ${newBook.title}. Усього книг: ${books.length}`
+    );
+
+    renderBooks(books, booksList);
 
     booksCount.textContent = `Усього книг: ${books.length}`;
 
@@ -93,39 +190,66 @@ if (staticBookCard) {
 }
 
 // Рендер карток книг із масиву
-function renderBooks(books) {
-    booksList.innerHTML = '';
+function renderBooks(books, container) {
+    container.innerHTML = '';
 
-    // Створення картки для кожної книги
     books.forEach((book, index) => {
         const article = document.createElement('article');
         const title = document.createElement('h3');
         const author = document.createElement('p');
-        const statusSelect = document.createElement('select');
 
-        // Додавання класу та атрибута data-pages
         article.classList.add('book-card');
-        article.setAttribute('data-pages', book.pages);
 
-        if (!book.finished) {
+        if (book.pages !== undefined) {
+            article.setAttribute('data-pages', book.pages);
+        }
+
+        if (
+            typeof book.finished === 'boolean' &&
+            !book.finished
+        ) {
             article.classList.add('unread');
         }
 
         title.textContent = book.title;
         author.textContent = `Автор: ${book.author}`;
 
-        statusSelect.classList.add('book-status-select');
-        statusSelect.dataset.index = index;
+        article.append(title, author);
 
-        statusSelect.innerHTML = `
-            <option value="reading">Читаю</option>
-            <option value="completed">Прочитано</option>
-        `;
+        // Рік першого видання для результатів API
+        if (book.firstPublishYear !== undefined) {
+            const year = document.createElement('p');
 
-        statusSelect.value = book.finished ? 'completed' : 'reading';
+            year.textContent =
+                `Рік першого видання: ${book.firstPublishYear}`;
 
-        article.append(title, author, statusSelect);
-        booksList.append(article);
+            article.append(year);
+        }
+
+        // Статус для книг трекера
+        if (typeof book.finished === 'boolean') {
+            const statusSelect =
+                document.createElement('select');
+
+            statusSelect.classList.add(
+                'book-status-select'
+            );
+
+            statusSelect.dataset.index = index;
+
+            statusSelect.innerHTML = `
+                <option value="reading">Читаю</option>
+                <option value="completed">Прочитано</option>
+            `;
+
+            statusSelect.value = book.finished
+                ? 'completed'
+                : 'reading';
+
+            article.append(statusSelect);
+        }
+
+        container.append(article);
     });
 }
 
@@ -136,7 +260,11 @@ booksList.addEventListener('change', event => {
 
         books[index].finished = event.target.value === 'completed';
 
-        renderBooks(books);
+        console.log(
+            `Статус книги "${books[index].title}" змінено на: ${event.target.value}`
+        );
+
+        renderBooks(books, booksList);
 
         const completedBooks = books.filter(book => book.finished).length;
         completedCount.textContent = `Прочитано: ${completedBooks}`;
@@ -144,7 +272,7 @@ booksList.addEventListener('change', event => {
 });
 
 // Виведення книг на сторінку
-renderBooks(books);
+renderBooks(books, booksList);
 
 // Вибір елементів статистики
 const booksCount = document.querySelector('#books-count');

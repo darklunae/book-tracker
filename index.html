@@ -21,6 +21,7 @@
         <nav>
             <a href="#add-book">Додати книгу</a>
             <a href="#my-books">Мої книги</a>
+            <a href="#api-search">Пошук книг</a>
             <a href="#statistics">Статистика</a>
         </nav>
     </header>
@@ -72,18 +73,49 @@
                 <h2>Мої книги</h2>
 
                 <div class="cards" id="books-list">
-
                     <article class="book-card">
                         <div class="book-cover">Обкладинка</div>
+
                         <h3>1984</h3>
+
                         <p>Автор: Джордж Орвелл</p>
+
                         <p>
                             Статус:
-                            <span class="status status-completed">Прочитано</span>
+                            <span class="status status-completed">
+                        Прочитано
+                    </span>
                         </p>
                     </article>
-
                 </div>
+            </section>
+
+            <section id="api-search">
+                <h2>Пошук книг</h2>
+
+                <label for="api-search-input">Назва книги:</label>
+
+                <input
+                        type="text"
+                        id="api-search-input"
+                        placeholder="Введіть назву книги"
+                >
+
+                <button type="button" id="api-search-button">
+                    Знайти книгу
+                </button>
+
+                <button type="button" id="refresh-button">
+                    Оновити
+                </button>
+
+                <p id="loading-message" hidden>
+                    Завантаження...
+                </p>
+
+                <p id="error-message" class="error-message"></p>
+
+                <div class="cards" id="search-results-list"></div>
             </section>
         </main>
 
