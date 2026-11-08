@@ -11,6 +11,9 @@
     <title>Трекер прочитаних книг</title>
 
     <link rel="stylesheet" href="css/style.css">
+
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js" defer></script>
+
     <script src="script.js" defer></script>
 </head>
 
@@ -73,20 +76,16 @@
                 <h2>Мої книги</h2>
 
                 <div class="cards" id="books-list">
-                    <article class="book-card">
-                        <div class="book-cover">Обкладинка</div>
-
-                        <h3>1984</h3>
-
-                        <p>Автор: Джордж Орвелл</p>
-
-                        <p>
-                            Статус:
-                            <span class="status status-completed">
-                        Прочитано
-                    </span>
-                        </p>
-                    </article>
+                    <book-row
+                            v-for="book in books"
+                            :key="book.id"
+                            :id="book.id"
+                            :title="book.title"
+                            :author="book.author"
+                            :pages="book.pages"
+                            :status="book.finished"
+                            @toggle="toggleStatus"
+                    ></book-row>
                 </div>
             </section>
 

@@ -1,32 +1,130 @@
+/*
+Для реалізації інтерфейсу було обрано фреймворк Vue 3, оскільки він забезпечує реактивне керування даними
+та автоматичне оновлення інтерфейсу без ручного перерендеру DOM-елементів. Компонентний підхід
+Vue дозволяє створити багаторазовий компонент BookRow, передавати йому назву, автора, кількість сторінок
+і статус книги через props, а зміни статусу передавати батьківському компоненту через emit. Додатковою
+перевагою є можливість підключення Vue 3 через CDN без додаткових інструментів збирання, що спрощує
+інтеграцію в наявний проєкт і дозволяє зберегти функціональність попередніх практичних робіт.
+*/
+
 console.log('script.js підключено');
 
-// Масив об'єктів із даними про книги
-const books = [
-    {
-        title: '1984',
-        author: 'Джордж Орвелл',
-        pages: 328,
-        finished: true
+// Компонент книги отримує дані через props
+// і повідомляє батьківський компонент про зміну статусу
+const BookRow = {
+    props: {
+        id: {
+            type: Number,
+            required: true
+        },
+        title: {
+            type: String,
+            required: true
+        },
+        author: {
+            type: String,
+            required: true
+        },
+        pages: {
+            type: Number,
+            required: true
+        },
+        status: {
+            type: Boolean,
+            required: true
+        }
     },
-    {
-        title: 'Прекрасний новий світ',
-        author: 'Олдос Гакслі',
-        pages: 288,
-        finished: true
+
+    emits: ['toggle'],
+
+    template: `
+        <article
+            class="book-card"
+            :class="{ unread: !status }"
+            :data-pages="pages"
+        >
+            <h3>{{ title }}</h3>
+
+            <p>Автор: {{ author }}</p>
+
+            <p>Кількість сторінок: {{ pages }}</p>
+
+            <p>
+                Статус:
+                <button
+                    type="button"
+                    class="status"
+                    :class="{ 'status-completed': status }"
+                    :aria-pressed="status"
+                    @click="$emit('toggle', id)"
+                >
+                    {{ status ? 'Прочитано' : 'Читаю' }}
+                </button>
+            </p>
+        </article>
+    `
+};
+
+// Реактивний стан списку книг
+const booksApp = Vue.createApp({
+    components: {
+        BookRow
     },
-    {
-        title: 'Квіти для Елджернона',
-        author: 'Деніел Кіз',
-        pages: 320,
-        finished: false
+    data() {
+        return {
+            books: [
+                {
+                    id: 1,
+                    title: '1984',
+                    author: 'Джордж Орвелл',
+                    pages: 328,
+                    finished: true
+                },
+                {
+                    id: 2,
+                    title: 'Прекрасний новий світ',
+                    author: 'Олдос Гакслі',
+                    pages: 288,
+                    finished: true
+                },
+                {
+                    id: 3,
+                    title: 'Квіти для Елджернона',
+                    author: 'Деніел Кіз',
+                    pages: 320,
+                    finished: false
+                },
+                {
+                    id: 4,
+                    title: 'Парфуми. Історія одного вбивці',
+                    author: 'Патрік Зюскінд',
+                    pages: 304,
+                    finished: true
+                }
+            ]
+        };
     },
-    {
-        title: 'Парфуми. Історія одного вбивці',
-        author: 'Патрік Зюскінд',
-        pages: 304,
-        finished: true
+    // Перемикає статус книги, Vue автоматично оновлює її картку
+    methods: {
+        toggleStatus(id) {
+            const book = this.books.find(book => book.id === id);
+
+            if (book) {
+                book.finished = !book.finished;
+            }
+        }
     }
-];
+});
+
+// Підключення Vue до наявного розділу «Мої книги»
+const booksVm = booksApp.mount('#my-books');
+
+// Тимчасове посилання на стан для обробників попередніх робіт
+const books = booksVm.books;
+
+// Ручний рендер списку «Мої книги» замінено компонентом BookRow
+// та директивою v-for. Зміни реактивного масиву books
+// автоматично відображаються в інтерфейсі.
 
 const API_URL = 'https://openlibrary.org/search.json?q=';
 
@@ -87,8 +185,6 @@ async function loadData(query) {
 
 console.log(books);
 
-// Вибір контейнера для списку книг
-const booksList = document.querySelector('#books-list');
 
 const apiSearchInput =
     document.querySelector('#api-search-input');
@@ -157,6 +253,7 @@ form.addEventListener('submit', event => {
 
     // Створення нового об'єкта книги
     const newBook = {
+        id: Math.max(0, ...books.map(book => book.id)) + 1,
         title: title,
         author: author,
         pages: pages,
@@ -170,7 +267,6 @@ form.addEventListener('submit', event => {
         `Додано книгу: ${newBook.title}. Усього книг: ${books.length}`
     );
 
-    renderBooks(books, booksList);
 
     booksCount.textContent = `Усього книг: ${books.length}`;
 
@@ -182,97 +278,29 @@ form.addEventListener('submit', event => {
     form.reset();
 });
 
-// Знаходить і видаляє статичний приклад картки
-const staticBookCard = document.querySelector('.book-card');
-
-if (staticBookCard) {
-    staticBookCard.remove();
-}
-
-// Рендер карток книг із масиву
-function renderBooks(books, container) {
+// Ручний DOM-рендер використовується лише для результатів API.
+// Список «Мої книги» відображається компонентами Vue.
+function renderBooks(apiBooks, container) {
     container.innerHTML = '';
 
-    books.forEach((book, index) => {
+    apiBooks.forEach(book => {
         const article = document.createElement('article');
-        const title = document.createElement('h3');
-        const author = document.createElement('p');
-
         article.classList.add('book-card');
 
-        if (book.pages !== undefined) {
-            article.setAttribute('data-pages', book.pages);
-        }
-
-        if (
-            typeof book.finished === 'boolean' &&
-            !book.finished
-        ) {
-            article.classList.add('unread');
-        }
-
+        const title = document.createElement('h3');
         title.textContent = book.title;
+
+        const author = document.createElement('p');
         author.textContent = `Автор: ${book.author}`;
 
-        article.append(title, author);
+        const year = document.createElement('p');
+        year.textContent =
+            `Рік першого видання: ${book.firstPublishYear ?? 'Невідомо'}`;
 
-        // Рік першого видання для результатів API
-        if (book.firstPublishYear !== undefined) {
-            const year = document.createElement('p');
-
-            year.textContent =
-                `Рік першого видання: ${book.firstPublishYear}`;
-
-            article.append(year);
-        }
-
-        // Статус для книг трекера
-        if (typeof book.finished === 'boolean') {
-            const statusSelect =
-                document.createElement('select');
-
-            statusSelect.classList.add(
-                'book-status-select'
-            );
-
-            statusSelect.dataset.index = index;
-
-            statusSelect.innerHTML = `
-                <option value="reading">Читаю</option>
-                <option value="completed">Прочитано</option>
-            `;
-
-            statusSelect.value = book.finished
-                ? 'completed'
-                : 'reading';
-
-            article.append(statusSelect);
-        }
-
+        article.append(title, author, year);
         container.append(article);
     });
 }
-
-// Обробка зміни статусу книги через делегування подій
-booksList.addEventListener('change', event => {
-    if (event.target.classList.contains('book-status-select')) {
-        const index = Number(event.target.dataset.index);
-
-        books[index].finished = event.target.value === 'completed';
-
-        console.log(
-            `Статус книги "${books[index].title}" змінено на: ${event.target.value}`
-        );
-
-        renderBooks(books, booksList);
-
-        const completedBooks = books.filter(book => book.finished).length;
-        completedCount.textContent = `Прочитано: ${completedBooks}`;
-    }
-});
-
-// Виведення книг на сторінку
-renderBooks(books, booksList);
 
 // Вибір елементів статистики
 const booksCount = document.querySelector('#books-count');
@@ -280,9 +308,6 @@ const completedCount = document.querySelector('#completed-count');
 
 // Оновлення статистики
 booksCount.textContent = `Усього книг: ${books.length}`;
-
-const completedBooks = books.filter(book => book.finished).length;
-completedCount.textContent = `Прочитано: ${completedBooks}`;
 
 // Підраховує сумарну кількість сторінок прочитаних книг
 function calculateReadPages(books) {
@@ -310,3 +335,12 @@ for (const book of books) {
 const pagesPerDay = (pages, days) => Math.round(pages / days);
 
 console.log(`Сторінок на день: ${pagesPerDay(books[0].pages, 10)}`);
+
+// Синхронізація наявного лічильника зі станом книг
+Vue.watch(
+    () => books.filter(book => book.finished).length,
+    count => {
+        completedCount.textContent = `Прочитано: ${count}`;
+    },
+    { immediate: true }
+);

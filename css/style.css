@@ -345,3 +345,44 @@ footer {
         max-width: none;
     }
 }
+
+/* Кнопка перемикання статусу книги */
+button.status {
+    display: inline-block;
+    padding: 6px 10px;
+    border: 1px solid transparent;
+    border-radius: 8px;
+
+    font-family: inherit;
+    font-size: 0.875rem;
+    font-weight: 600;
+    line-height: 1.4;
+
+    background-color: #e2cfb4;
+    color: #5e4937;
+    cursor: pointer;
+}
+
+/* Стан «Читаю» при наведенні */
+button.status:hover {
+    background-color: #d5bd9d;
+    color: #5e4937;
+}
+
+/* Стан «Прочитано» */
+button.status.status-completed {
+    background-color: #d9e1d2;
+    color: #40523b;
+}
+
+/* Стан «Прочитано» при наведенні */
+button.status.status-completed:hover {
+    background-color: #c5d1bb;
+    color: #40523b;
+}
+
+/* Виділення під час керування клавіатурою */
+button.status:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+}
