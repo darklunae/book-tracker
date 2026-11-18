@@ -9,6 +9,228 @@ Vue дозволяє створити багаторазовий компоне�
 
 console.log('script.js підключено');
 
+// Ключ для збереження власного списку книг
+const STORAGE_KEY = 'bookTrackerBooks';
+
+// Прапорець одноразової міграції
+const MIGRATION_KEY = 'bookTrackerMigratedToIndexedDB';
+
+// Схема бази даних IndexedDB
+const DB_NAME = 'BookTrackerDB';
+const DB_VERSION = 1;
+const BOOKS_STORE = 'books';
+
+// Зберігає масив книг у localStorage у форматі JSON
+function saveToLocalStorage(items) {
+    try {
+        const json = JSON.stringify(items);
+
+        localStorage.setItem(STORAGE_KEY, json);
+
+        return true;
+    } catch (error) {
+        console.error(
+            'Не вдалося зберегти книги в localStorage:',
+            error
+        );
+
+        return false;
+    }
+}
+
+// Читає масив книг із localStorage
+function loadFromLocalStorage() {
+    try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+
+        if (raw === null) {
+            return [];
+        }
+
+        const items = JSON.parse(raw);
+
+        if (!Array.isArray(items)) {
+            throw new Error(
+                'Збережені дані повинні бути масивом книг'
+            );
+        }
+
+        return items;
+    } catch (error) {
+        console.error(
+            'Не вдалося прочитати книги з localStorage:',
+            error
+        );
+
+        return [];
+    }
+}
+
+// Відкриває базу IndexedDB та створює сховище книг
+// під час першого запуску
+function openDB() {
+
+    return new Promise((resolve, reject) => {
+        const request = indexedDB.open(
+            DB_NAME,
+            DB_VERSION
+        );
+
+        // Створення або оновлення структури бази
+        request.onupgradeneeded = () => {
+            const db = request.result;
+
+            if (!db.objectStoreNames.contains(BOOKS_STORE)) {
+                db.createObjectStore(BOOKS_STORE, {
+                    keyPath: 'id'
+                });
+            }
+        };
+
+        // Успішне відкриття бази
+        request.onsuccess = () => {
+            const db = request.result;
+
+            // Не блокуємо зміну версії бази в іншій вкладці
+            db.onversionchange = () => {
+                db.close();
+            };
+
+            resolve(db);
+        };
+
+        // Помилка відкриття бази
+        request.onerror = () => {
+            reject(request.error);
+        };
+
+        // Інша вкладка перешкоджає оновленню бази
+        request.onblocked = () => {
+            console.warn(
+                'Оновлення IndexedDB заблоковано. ' +
+                'Закрийте інші вкладки цього застосунку.'
+            );
+        };
+    });
+}
+
+// Створює звичайний об’єкт для запису в IndexedDB
+function toBookRecord(book) {
+    return {
+        id: book.id,
+        title: book.title,
+        author: book.author,
+        pages: book.pages,
+        status: book.status,
+        rating: book.rating ?? null
+    };
+}
+
+// Виконує операцію та очікує завершення всієї транзакції
+async function runBooksTransaction(mode, operation) {
+    const db = await openDB();
+
+    try {
+        return await new Promise((resolve, reject) => {
+            const tx = db.transaction(BOOKS_STORE, mode);
+            const store = tx.objectStore(BOOKS_STORE);
+            let request;
+
+            tx.oncomplete = () => {
+                resolve(request.result);
+            };
+
+            tx.onabort = () => {
+                reject(
+                    tx.error ||
+                    new Error('Транзакцію IndexedDB скасовано')
+                );
+            };
+
+            try {
+                request = operation(store);
+            } catch (error) {
+                tx.abort();
+                reject(error);
+            }
+        });
+    } finally {
+        db.close();
+    }
+}
+
+// Створення або запис книги
+async function addItem(item) {
+    const record = toBookRecord(item);
+
+    return runBooksTransaction(
+        'readwrite',
+        store => store.put(record)
+    );
+}
+
+// Оновлення книги за її id
+async function updateItem(item) {
+    const record = toBookRecord(item);
+
+    return runBooksTransaction(
+        'readwrite',
+        store => store.put(record)
+    );
+}
+
+// Отримання всіх книг
+async function getAllItems() {
+    return runBooksTransaction(
+        'readonly',
+        store => store.getAll()
+    );
+}
+
+// Видалення книги за її id
+async function deleteItem(id) {
+    return runBooksTransaction(
+        'readwrite',
+        store => store.delete(id)
+    );
+}
+
+// Одноразове перенесення книг із localStorage до IndexedDB
+async function migrateFromLocalStorage() {
+    if (localStorage.getItem(MIGRATION_KEY) === 'true') {
+        return 0;
+    }
+
+    const savedBooks = loadFromLocalStorage();
+
+    if (savedBooks.length === 0) {
+        return 0;
+    }
+
+    const existingBooks = await getAllItems();
+    let migratedCount = 0;
+
+    // Переносимо дані лише в порожнє сховище
+    if (existingBooks.length === 0) {
+        await runBooksTransaction('readwrite', store => {
+            let request;
+
+            for (const book of savedBooks) {
+                request = store.put(toBookRecord(book));
+            }
+
+            return request;
+        });
+
+        migratedCount = savedBooks.length;
+    }
+
+    // Повторно старі дані не переносимо
+    localStorage.setItem(MIGRATION_KEY, 'true');
+
+    return migratedCount;
+}
+
 // Компонент книги отримує дані через props
 // і повідомляє батьківський компонент про зміну статусу
 const BookRow = {
@@ -30,17 +252,23 @@ const BookRow = {
             required: true
         },
         status: {
+            type: String,
+            required: true,
+            validator: value =>
+                ['planned', 'reading', 'completed'].includes(value)
+        },
+        disabled: {
             type: Boolean,
-            required: true
-        }
+            default: false
+        },
     },
 
-    emits: ['toggle'],
+    emits: ['toggle', 'remove'],
 
     template: `
         <article
             class="book-card"
-            :class="{ unread: !status }"
+            :class="{ unread: status !== 'completed' }"
             :data-pages="pages"
         >
             <h3>{{ title }}</h3>
@@ -54,13 +282,31 @@ const BookRow = {
                 <button
                     type="button"
                     class="status"
-                    :class="{ 'status-completed': status }"
-                    :aria-pressed="status"
+                    :disabled="disabled"
+                    :class="{
+                        'status-planned': status === 'planned',
+                        'status-reading': status === 'reading',
+                        'status-completed': status === 'completed'
+                    }"
                     @click="$emit('toggle', id)"
                 >
-                    {{ status ? 'Прочитано' : 'Читаю' }}
+                    {{
+                        status === 'completed'
+                            ? 'Прочитано'
+                            : status === 'reading'
+                                ? 'Читаю'
+                                : 'У планах'
+                    }}
                 </button>
             </p>
+            <button
+                type="button"
+                class="delete-book-button"
+                :disabled="disabled"
+                @click="$emit('remove', id)"
+            >
+                Видалити
+            </button>
         </article>
     `
 };
@@ -70,48 +316,121 @@ const booksApp = Vue.createApp({
     components: {
         BookRow
     },
+
     data() {
         return {
-            books: [
-                {
-                    id: 1,
-                    title: '1984',
-                    author: 'Джордж Орвелл',
-                    pages: 328,
-                    finished: true
-                },
-                {
-                    id: 2,
-                    title: 'Прекрасний новий світ',
-                    author: 'Олдос Гакслі',
-                    pages: 288,
-                    finished: true
-                },
-                {
-                    id: 3,
-                    title: 'Квіти для Елджернона',
-                    author: 'Деніел Кіз',
-                    pages: 320,
-                    finished: false
-                },
-                {
-                    id: 4,
-                    title: 'Парфуми. Історія одного вбивці',
-                    author: 'Патрік Зюскінд',
-                    pages: 304,
-                    finished: true
-                }
-            ]
+            books: [],
+            statusFilter: 'all',
+            busy: true,
+            ready: false,
+            storageError: ''
         };
     },
-    // Перемикає статус книги, Vue автоматично оновлює її картку
+
+    computed: {
+        filteredBooks() {
+            if (this.statusFilter === 'all') {
+                return this.books;
+            }
+
+            return this.books.filter(
+                book => book.status === this.statusFilter
+            );
+        }
+    },
+
+    // Завантаження книг з обробкою помилки доступу до бази
+    async mounted() {
+        try {
+            await migrateFromLocalStorage();
+            await this.refreshBooks();
+            this.ready = true;
+        } catch (error) {
+            console.error('Помилка завантаження IndexedDB:', error);
+
+            this.ready = false;
+
+            this.storageError =
+                'Не вдалося відкрити базу даних або завантажити книги. ' +
+                'Перевірте, чи дозволено браузеру зберігати дані сайту, ' +
+                'та спробуйте оновити сторінку.';
+        } finally {
+            this.busy = false;
+        }
+    },
+
     methods: {
-        toggleStatus(id) {
+        // Завантажує записи та оновлює список і навчальні підрахунки
+        async refreshBooks() {
+            const items = await getAllItems();
+
+            // Зберігаємо посилання на реактивний масив
+            this.books.splice(0, this.books.length, ...items);
+
+            calculateReadPages(this.books);
+
+            for (const book of this.books) {
+                if (book.status !== 'completed') {
+                    console.log(`Ще не прочитано: ${book.title}`);
+                }
+            }
+
+            if (this.books.length > 0) {
+                console.log(
+                    `Сторінок на день: ${
+                        pagesPerDay(this.books[0].pages, 10)
+                    }`
+                );
+            }
+        },
+
+        // Виконує зміну в базі та оновлює список
+        async runBookAction(action) {
+            if (this.busy || !this.ready) {
+                return false;
+            }
+
+            this.busy = true;
+            this.storageError = '';
+
+            try {
+                await action();
+                await this.refreshBooks();
+                return true;
+            } catch (error) {
+                console.error(error);
+                this.storageError =
+                    'Не вдалося виконати операцію з книгами.';
+                return false;
+            } finally {
+                this.busy = false;
+            }
+        },
+
+        async toggleStatus(id) {
             const book = this.books.find(book => book.id === id);
 
-            if (book) {
-                book.finished = !book.finished;
+            if (!book) {
+                return;
             }
+
+            const statuses = ['planned', 'reading', 'completed'];
+            const index = statuses.indexOf(book.status);
+
+            const updatedBook = {
+                ...book,
+                status: statuses[(index + 1) % statuses.length]
+            };
+
+            await this.runBookAction(
+                () => updateItem(updatedBook)
+            );
+        },
+
+        async removeBook(id) {
+            await this.runBookAction(
+                () => deleteItem(id)
+            );
         }
     }
 });
@@ -242,40 +561,35 @@ authorInput.addEventListener('input', () => {
 });
 
 // Обробка надсилання форми та додавання нової книги
-form.addEventListener('submit', event => {
+// Додає книгу в IndexedDB та оновлює список
+form.addEventListener('submit', async event => {
     event.preventDefault();
 
-    // Зчитування значень полів форми
+    if (!booksVm.ready || booksVm.busy) {
+        return;
+    }
+
     const title = document.querySelector('#book-title').value.trim();
     const author = document.querySelector('#book-author').value.trim();
     const pages = Number(document.querySelector('#book-pages').value);
     const status = document.querySelector('#book-status').value;
 
-    // Створення нового об'єкта книги
     const newBook = {
         id: Math.max(0, ...books.map(book => book.id)) + 1,
         title: title,
         author: author,
         pages: pages,
-        finished: status === 'completed'
+        status: status,
+        rating: null
     };
 
-    // Додавання нової книги до масиву
-    books.push(newBook);
-
-    console.log(
-        `Додано книгу: ${newBook.title}. Усього книг: ${books.length}`
+    const saved = await booksVm.runBookAction(
+        () => addItem(newBook)
     );
 
-
-    booksCount.textContent = `Усього книг: ${books.length}`;
-
-    // Оновлення статистики
-    const completedBooks = books.filter(book => book.finished).length;
-    completedCount.textContent = `Прочитано: ${completedBooks}`;
-
-    // Очищення форми
-    form.reset();
+    if (saved) {
+        form.reset();
+    }
 });
 
 // Ручний DOM-рендер використовується лише для результатів API.
@@ -314,7 +628,7 @@ function calculateReadPages(books) {
     let totalPages = 0;
 
     for (let i = 0; i < books.length; i++) {
-        if (books[i].finished === true) {
+        if (books[i].status === 'completed') {
             totalPages += books[i].pages;
         }
     }
@@ -322,25 +636,21 @@ function calculateReadPages(books) {
     console.log(`Сумарна кількість сторінок прочитаних книг: ${totalPages}`);
 }
 
-calculateReadPages(books);
-
-// Перебирає книги та знаходить ті, які ще не прочитані
-for (const book of books) {
-    if (book.finished === false) {
-        console.log(`Ще не прочитано: ${book.title}`);
-    }
-}
-
 // Обчислює кількість сторінок для читання за один день
 const pagesPerDay = (pages, days) => Math.round(pages / days);
 
-console.log(`Сторінок на день: ${pagesPerDay(books[0].pages, 10)}`);
-
 // Синхронізація наявного лічильника зі станом книг
+// Оновлює статистику після завантаження та зміни книг
 Vue.watch(
-    () => books.filter(book => book.finished).length,
-    count => {
-        completedCount.textContent = `Прочитано: ${count}`;
+    () => [
+        books.length,
+        books.filter(book => book.status === 'completed').length
+    ],
+
+    ([total, completed]) => {
+        booksCount.textContent = `Усього книг: ${total}`;
+        completedCount.textContent = `Прочитано: ${completed}`;
     },
+
     { immediate: true }
 );

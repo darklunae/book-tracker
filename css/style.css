@@ -386,3 +386,33 @@ button.status:focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: 3px;
 }
+
+/* Кнопка видалення книги */
+.book-card .delete-book-button {
+    align-self: flex-start;
+    width: auto;
+    margin-top: 12px;
+    padding: 6px 12px;
+
+    background-color: #f5e8e1;
+    color: #793e2d;
+    border: 1px solid #d7b5a6;
+    border-radius: 6px;
+
+    font-size: 0.875rem;
+    line-height: 1.4;
+}
+
+.book-card .delete-book-button:hover:not(:disabled) {
+    background-color: #ead3c7;
+}
+
+.book-card .delete-book-button:focus-visible {
+    outline: 2px solid #793e2d;
+    outline-offset: 3px;
+}
+
+.book-card button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}

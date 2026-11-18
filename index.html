@@ -66,6 +66,7 @@
                     <select id="book-status" name="status">
                         <option value="reading">Читаю</option>
                         <option value="completed">Прочитано</option>
+                        <option value="planned">У планах</option>
                     </select>
 
                     <button type="submit">Додати книгу</button>
@@ -75,16 +76,40 @@
             <section id="my-books">
                 <h2>Мої книги</h2>
 
+                <label for="status-filter">Фільтр за статусом:</label>
+
+                <select
+                        id="status-filter"
+                        v-model="statusFilter"
+                >
+                    <option value="all">Усі книги</option>
+                    <option value="planned">У планах</option>
+                    <option value="reading">Читаю</option>
+                    <option value="completed">Прочитано</option>
+                </select>
+
+                <p v-if="busy">Виконується операція...</p>
+
+                <p v-if="storageError" role="alert">
+                    {{ storageError }}
+                </p>
+
+                <p v-if="ready && !busy && filteredBooks.length === 0">
+                    Немає книг для відображення.
+                </p>
+
                 <div class="cards" id="books-list">
                     <book-row
-                            v-for="book in books"
+                            v-for="book in filteredBooks"
                             :key="book.id"
                             :id="book.id"
                             :title="book.title"
                             :author="book.author"
                             :pages="book.pages"
-                            :status="book.finished"
+                            :status="book.status"
+                            :disabled="busy || !ready"
                             @toggle="toggleStatus"
+                            @remove="removeBook"
                     ></book-row>
                 </div>
             </section>
@@ -121,7 +146,7 @@
         <aside id="statistics">
             <h2>Статистика читання</h2>
             <p id="books-count">Усього книг: 0</p>
-            <p id="completed-count">Прочитано: 3</p>
+            <p id="completed-count">Прочитано: 0</p>
         </aside>
 
     </div>
