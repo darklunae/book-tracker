@@ -416,3 +416,128 @@ button.status:focus-visible {
     opacity: 0.6;
     cursor: not-allowed;
 }
+
+/* Прогрес читання окремої книги */
+.reading-progress {
+    margin: 12px 0;
+}
+
+.book-card .reading-progress__text {
+    margin: 0 0 6px;
+    color: var(--text);
+    font-size: 0.85rem;
+}
+
+/* Фон смуги прогресу */
+.reading-progress__track {
+    width: 100%;
+    height: 12px;
+    overflow: hidden;
+
+    background-color: var(--surface-alt);
+    border-radius: 6px;
+}
+
+/* Заповнена частина: початковий стан */
+.reading-progress__fill {
+    width: 0%;
+    height: 100%;
+
+    background-color: #718166;
+    border-radius: inherit;
+
+    transition: width 0.4s ease;
+}
+
+/* Форма оновлення прогресу читання */
+.reading-progress-form {
+    margin: 10px 0 14px;
+}
+
+.reading-progress-form input {
+    margin-bottom: 8px;
+}
+
+.reading-progress-form button {
+    padding: 6px 10px;
+    font-size: 0.875rem;
+}
+
+/* Розміщення прогресу в картці */
+.book-card .reading-progress {
+    margin: 16px 0 12px;
+}
+
+.book-card .reading-progress__text {
+    margin: 0 0 8px;
+    color: var(--text);
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+.book-card .reading-progress__track {
+    height: 10px;
+    overflow: hidden;
+    background-color: var(--surface-alt);
+    border-radius: 999px;
+}
+
+.book-card .reading-progress__fill {
+    height: 100%;
+    background-color: #718166;
+    border-radius: inherit;
+    transition: width 0.4s ease;
+}
+
+/* Компактна форма оновлення сторінки */
+.book-card .reading-progress-form {
+    margin: 0 0 16px;
+}
+
+.book-card .reading-progress-form label {
+    margin-bottom: 6px;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+.reading-progress-controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: stretch;
+    gap: 8px;
+}
+
+.book-card .reading-progress-controls input {
+    flex: 1 1 70px;
+    width: 0;
+    min-width: 60px;
+    margin: 0;
+    padding: 7px 10px;
+    font-size: 0.875rem;
+}
+
+.book-card .reading-progress-controls button {
+    padding: 7px 12px;
+    border-radius: 6px;
+    font-size: 0.875rem;
+    line-height: 1.4;
+}
+
+/* Врахування налаштування зменшення руху */
+@media (prefers-reduced-motion: reduce) {
+    .book-card .reading-progress__fill {
+        transition: none;
+    }
+}
+
+/* Стан «У планах» */
+button.status.status-planned {
+    background-color: #eee1d2;
+    color: #665345;
+}
+
+button.status.status-planned:hover {
+    background-color: #dfcdb9;
+    color: #665345;
+}

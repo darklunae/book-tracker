@@ -106,10 +106,12 @@
                             :title="book.title"
                             :author="book.author"
                             :pages="book.pages"
+                            :pages-read="book.pagesRead"
                             :status="book.status"
                             :disabled="busy || !ready"
                             @toggle="toggleStatus"
                             @remove="removeBook"
+                            @progress="updateProgress"
                     ></book-row>
                 </div>
             </section>

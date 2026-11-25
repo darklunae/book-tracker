@@ -7,6 +7,20 @@ Vue дозволяє створити багаторазовий компоне�
 інтеграцію в наявний проєкт і дозволяє зберегти функціональність попередніх практичних робіт.
 */
 
+/*
+Практична робота №12.
+Для варіанта 9 обрано CSS-перехід transition:
+ширина смуги прогресу плавно змінюватиметься відповідно
+до кількості прочитаних сторінок конкретної книги.
+Прогрес відображатиметься в компоненті BookRow.
+
+У компоненті BookRow реалізовано прогрес читання
+«сторінка X із Y». Значення pagesRead зберігається в IndexedDB,
+а ширина смуги обчислюється з даних конкретної книги.
+Після збереження поточної сторінки Vue оновлює інтерфейс,
+а CSS-перехід плавно змінює ширину смуги протягом 0,4 секунди.
+*/
+
 console.log('script.js підключено');
 
 // Ключ для збереження власного списку книг
@@ -114,7 +128,23 @@ function openDB() {
     });
 }
 
-// Створює звичайний об’єкт для запису в IndexedDB
+// Визначає кількість прочитаних сторінок,
+// зокрема для старих записів без поля pagesRead
+function getReadPages(book) {
+    if (book.status === 'completed') {
+        return book.pages;
+    }
+
+    if (book.status === 'planned') {
+        return 0;
+    }
+
+    const value = Math.trunc(Number(book.pagesRead) || 0);
+
+    return Math.min(book.pages, Math.max(0, value));
+}
+
+// Формує запис книги для IndexedDB
 function toBookRecord(book) {
     return {
         id: book.id,
@@ -122,7 +152,8 @@ function toBookRecord(book) {
         author: book.author,
         pages: book.pages,
         status: book.status,
-        rating: book.rating ?? null
+        rating: book.rating ?? null,
+        pagesRead: getReadPages(book)
     };
 }
 
@@ -261,9 +292,38 @@ const BookRow = {
             type: Boolean,
             default: false
         },
+        pagesRead: {
+            type: Number,
+            default: 0
+        }
     },
 
-    emits: ['toggle', 'remove'],
+    computed: {
+        progressPercent() {
+            if (this.pages <= 0) {
+                return 0;
+            }
+
+            return Math.min(
+                100,
+                Math.max(0, (this.pagesRead / this.pages) * 100)
+            );
+        }
+    },
+
+    methods: {
+        // Передає новий прогрес батьківському компоненту
+        submitProgress() {
+            const pagesRead = this.$refs.pageInput.valueAsNumber;
+
+            this.$emit('progress', {
+                id: this.id,
+                pagesRead: pagesRead
+            });
+        }
+    },
+
+    emits: ['toggle', 'remove', 'progress'],
 
     template: `
         <article
@@ -276,6 +336,53 @@ const BookRow = {
             <p>Автор: {{ author }}</p>
 
             <p>Кількість сторінок: {{ pages }}</p>
+
+            <div class="reading-progress">
+                <p class="reading-progress__text">
+                    Сторінка {{ pagesRead }} із {{ pages }}
+                </p>
+            
+                <div
+                    class="reading-progress__track"
+                    role="progressbar"
+                    :aria-label="'Прогрес читання книги ' + title"
+                    aria-valuemin="0"
+                    :aria-valuemax="pages"
+                    :aria-valuenow="pagesRead"
+                >
+                    <div
+                        class="reading-progress__fill"
+                        :style="{ width: progressPercent + '%' }"
+                    ></div>
+                </div>
+            </div>
+            
+            <form
+                class="reading-progress-form"
+                @submit.prevent="submitProgress"
+            >
+                <label :for="'reading-page-' + id">
+                    Оновити сторінку:
+                </label>
+            
+                <div class="reading-progress-controls">
+                    <input
+                        :id="'reading-page-' + id"
+                        ref="pageInput"
+                        type="number"
+                        :value="pagesRead"
+                        min="0"
+                        :max="pages"
+                        step="1"
+                        required
+                        :disabled="disabled"
+                    >
+            
+                    <button type="submit" :disabled="disabled">
+                        Зберегти
+                    </button>
+                </div>
+            </form>
 
             <p>
                 Статус:
@@ -362,7 +469,7 @@ const booksApp = Vue.createApp({
     methods: {
         // Завантажує записи та оновлює список і навчальні підрахунки
         async refreshBooks() {
-            const items = await getAllItems();
+            const items = (await getAllItems()).map(toBookRecord);
 
             // Зберігаємо посилання на реактивний масив
             this.books.splice(0, this.books.length, ...items);
@@ -420,6 +527,31 @@ const booksApp = Vue.createApp({
             const updatedBook = {
                 ...book,
                 status: statuses[(index + 1) % statuses.length]
+            };
+
+            await this.runBookAction(
+                () => updateItem(updatedBook)
+            );
+        },
+
+        // Зберігає поточну сторінку та узгоджує статус книги
+        async updateProgress({ id, pagesRead }) {
+            const book = this.books.find(book => book.id === id);
+
+            if (!book) {
+                return;
+            }
+
+            const status = pagesRead === book.pages
+                ? 'completed'
+                : pagesRead > 0
+                    ? 'reading'
+                    : 'planned';
+
+            const updatedBook = {
+                ...book,
+                pagesRead: pagesRead,
+                status: status
             };
 
             await this.runBookAction(
@@ -580,7 +712,8 @@ form.addEventListener('submit', async event => {
         author: author,
         pages: pages,
         status: status,
-        rating: null
+        rating: null,
+        pagesRead: status === 'completed' ? pages : 0
     };
 
     const saved = await booksVm.runBookAction(
